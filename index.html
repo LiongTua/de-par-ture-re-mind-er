@@ -4,7 +4,6 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>出發時間計算器</title>
-  <!-- Favicon 圖示 -->
   <link rel="icon" href="https://cdn3.iconfinder.com/data/icons/feather-5/24/bell-512.png" type="image/png">
   <style>
     body {
@@ -44,7 +43,7 @@
       transition: background-color 0.3s;
     }
     button:hover { background-color: #0056b3; }
-    #result, #reminders {
+    #result {
       margin-top: 1em;
       font-size: 1.1em;
       text-align: center;
@@ -73,108 +72,77 @@
       <option value="60">60</option>
     </select>
 
-    <label>提醒方式</label>
-    <select id="mode">
-      <option value="page">網頁內提醒（需保持此頁開啟）</option>
-      <option value="event">匯入行事曆事件</option>
-    </select>
-
-    <button id="calcBtn">產生提醒</button>
+    <button onclick="calculateDepTime()">計算出發時間</button>
+    <button onclick="setWebNotification()">設定網頁提醒</button>
+    <button onclick="generateCalendarLink()">產生行事曆提醒</button>
 
     <div id="result"></div>
-    <div id="reminders"></div>
   </div>
 
-  <!-- 下方英雄圖示 -->
   <img id="hero-img" src="https://cdn2.iconfinder.com/data/icons/simple-line-isometry/1333/Goal_achievment_successful_startup_superhero_conquer_heights.eps-512.png" alt="目標達成" />
 
   <script>
-    function ensureNotificationPermission() {
-      if (!('Notification' in window)) return;
-      if (Notification.permission === 'default') Notification.requestPermission();
-    }
-    function scheduleWebNotification(msg, time) {
-      const delay = time - Date.now();
-      if (delay > 0) setTimeout(() => new Notification(msg), delay);
-    }
-
     document.addEventListener('DOMContentLoaded', () => {
       const now = new Date();
-      document.getElementById('targetTime').value = now.toTimeString().slice(0,5);
-      ensureNotificationPermission();
+      const hh = now.getHours().toString().padStart(2, '0');
+      const mm = now.getMinutes().toString().padStart(2, '0');
+      document.getElementById('targetTime').value = `${hh}:${mm}`;
     });
 
-    document.getElementById('calcBtn').onclick = () => {
-      // 清空顯示區
-      document.getElementById('result').textContent = '';
-      document.getElementById('reminders').innerHTML = '';
-
-      // 讀取輸入
+    function getDepTime() {
       const [th, tm] = document.getElementById('targetTime').value.split(':').map(Number);
       const travel = parseInt(document.getElementById('travelTime').value, 10);
       const startBuffer = 5;
       const parkBuffer = 15;
-      const mode = document.getElementById('mode').value;
 
-      // 計算出發時間
       const dep = new Date();
       dep.setHours(th);
       dep.setMinutes(tm - (travel + startBuffer + parkBuffer));
       dep.setSeconds(0);
       const now = new Date(); if (dep < now) dep.setDate(dep.getDate() + 1);
 
+      return dep;
+    }
+
+    function calculateDepTime() {
+      const dep = getDepTime();
       const depH = dep.getHours().toString().padStart(2, '0');
       const depM = dep.getMinutes().toString().padStart(2, '0');
-      document.getElementById('result').textContent = `建議出發時間：${depH}:${depM}`;
+      document.getElementById('result').innerHTML = `建議出發時間：${depH}:${depM}`;
+    }
 
-      if (mode === 'page') {
-        // 網頁通知
-        ensureNotificationPermission();
-        scheduleWebNotification(`⏰ 該出發囉！現在 ${depH}:${depM}`, dep.getTime());
-        const div = document.createElement('div');
-        div.textContent = `已設定網頁提醒：${depH}:${depM}`;
-        document.getElementById('reminders').appendChild(div);
-      } else if (mode === 'event') {
-        // 產生 ICS 檔（建議默認行事曆：出發提醒）
-        function toICSDate(d) {
-          return d.getFullYear().toString() +
-                 (d.getMonth() + 1).toString().padStart(2, '0') +
-                 d.getDate().toString().padStart(2, '0') + 'T' +
-                 d.getHours().toString().padStart(2, '0') +
-                 d.getMinutes().toString().padStart(2, '0') + '00';
-        }
-        const dtstamp = toICSDate(new Date());
-        const dtstart = toICSDate(dep);
-        const dtend = toICSDate(new Date(dep.getTime() + 5 * 60000));
-        const uid = Date.now() + '@smartdep';
-        const lines = [
-          'BEGIN:VCALENDAR',
-          'VERSION:2.0',
-          'PRODID:-//SmartDep//EN',
-          'X-WR-CALNAME:出發提醒',
-          'BEGIN:VEVENT',
-          `UID:${uid}`,
-          `DTSTAMP:${dtstamp}`,
-          `DTSTART:${dtstart}`,
-          `DTEND:${dtend}`,
-          'SUMMARY:⏰ 該出發囉！',
-          'BEGIN:VALARM',
-          'TRIGGER:-PT0M',
-          'ACTION:DISPLAY',
-          'DESCRIPTION:⏰ 該出發囉！',
-          'END:VALARM',
-          'END:VEVENT',
-          'END:VCALENDAR'
-        ];
-        const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar' });
-        const url = URL.createObjectURL(blob);
-        const link = document.createElement('a');
-        link.href = url;
-        link.download = 'departure_event.ics';
-        link.textContent = '下載並匯入行事曆事件';
-        document.getElementById('reminders').appendChild(link);
+    function setWebNotification() {
+      const dep = getDepTime();
+      if (!('Notification' in window)) {
+        alert('此瀏覽器不支援通知功能');
+        return;
       }
-    };
+      Notification.requestPermission().then(permission => {
+        if (permission === 'granted') {
+          const delay = dep.getTime() - Date.now();
+          if (delay > 0) {
+            setTimeout(() => new Notification(`⏰ 該出發囉！`), delay);
+            document.getElementById('result').innerHTML = `✅ 網頁提醒已設定：${dep.getHours().toString().padStart(2, '0')}:${dep.getMinutes().toString().padStart(2, '0')}`;
+          } else {
+            alert('出發時間已過！');
+          }
+        }
+      });
+    }
+
+    function generateCalendarLink() {
+      const dep = getDepTime();
+      const year = dep.getFullYear();
+      const month = (dep.getMonth() + 1).toString().padStart(2, '0');
+      const day = dep.getDate().toString().padStart(2, '0');
+      const hour = dep.getHours().toString().padStart(2, '0');
+      const minute = dep.getMinutes().toString().padStart(2, '0');
+
+      const dateStr = `${year}${month}${day}T${hour}${minute}`;
+      const url = `https://calendar.google.com/calendar/r/eventedit?text=⏰ 出發提醒&dates=${dateStr}/${dateStr}`;
+
+      document.getElementById('result').innerHTML = `<a href="${url}" target="_blank">👉 點我新增 Google 行事曆提醒</a>`;
+    }
   </script>
 </body>
 </html>
