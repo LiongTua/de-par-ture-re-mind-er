@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>出發時間計算器</title>
+  <!-- Favicon 圖示 -->
+  <link rel="icon" href="https://cdn3.iconfinder.com/data/icons/feather-5/24/bell-512.png" type="image/png">
+  <style>
+    body {
+      font-family: sans-serif;
+      padding: 1em;
+      background-color: #f0f4f8;
+      color: #333;
+    }
+    .container {
+      max-width: 360px;
+      margin: 0 auto;
+      background-color: #fff;
+      padding: 1em;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+    h1 { text-align: center; margin-bottom: 0.5em; }
+    label, select, input, button {
+      display: block;
+      margin: 0.5em auto;
+      width: 100%; max-width: 320px;
+      box-sizing: border-box;
+    }
+    input, select {
+      padding: 0.5em;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      background-color: #fff;
+    }
+    button {
+      padding: 0.7em;
+      border: none;
+      border-radius: 4px;
+      background-color: #007bff;
+      color: #fff;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+    button:hover { background-color: #0056b3; }
+    #result, #reminders {
+      margin-top: 1em;
+      font-size: 1.1em;
+      text-align: center;
+    }
+    #hero-img {
+      display: block;
+      margin: 2em auto 0;
+      max-width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>出發時間計算器</h1>
+
+    <label for="targetTime">車班／會議時間（24小時制）</label>
+    <input type="time" id="targetTime" step="60">
+
+    <label for="travelTime">出發路程時間（分鐘）</label>
+    <select id="travelTime">
+      <option value="15">15</option>
+      <option value="20">20</option>
+      <option value="30">30</option>
+      <option value="40">40</option>
+      <option value="50">50</option>
+      <option value="60">60</option>
+    </select>
+
+    <label>提醒方式</label>
+    <select id="mode">
+      <option value="page">網頁內提醒（需保持此頁開啟）</option>
+      <option value="event">匯入行事曆事件</option>
+    </select>
+
+    <button id="calcBtn">產生提醒</button>
+
+    <div id="result"></div>
+    <div id="reminders"></div>
+  </div>
+
+  <!-- 下方英雄圖示 -->
+  <img id="hero-img" src="https://cdn2.iconfinder.com/data/icons/simple-line-isometry/1333/Goal_achievment_successful_startup_superhero_conquer_heights.eps-512.png" alt="目標達成" />
+
+  <script>
+    function ensureNotificationPermission() {
+      if (!('Notification' in window)) return;
+      if (Notification.permission === 'default') Notification.requestPermission();
+    }
+    function scheduleWebNotification(msg, time) {
+      const delay = time - Date.now();
+      if (delay > 0) setTimeout(() => new Notification(msg), delay);
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      const now = new Date();
+      document.getElementById('targetTime').value = now.toTimeString().slice(0,5);
+      ensureNotificationPermission();
+    });
+
+    document.getElementById('calcBtn').onclick = () => {
+      // 清空顯示區
+      document.getElementById('result').textContent = '';
+      document.getElementById('reminders').innerHTML = '';
+
+      // 讀取輸入
+      const [th, tm] = document.getElementById('targetTime').value.split(':').map(Number);
+      const travel = parseInt(document.getElementById('travelTime').value, 10);
+      const startBuffer = 5;
+      const parkBuffer = 15;
+      const mode = document.getElementById('mode').value;
+
+      // 計算出發時間
+      const dep = new Date();
+      dep.setHours(th);
+      dep.setMinutes(tm - (travel + startBuffer + parkBuffer));
+      dep.setSeconds(0);
+      const now = new Date(); if (dep < now) dep.setDate(dep.getDate() + 1);
+
+      const depH = dep.getHours().toString().padStart(2, '0');
+      const depM = dep.getMinutes().toString().padStart(2, '0');
+      document.getElementById('result').textContent = `建議出發時間：${depH}:${depM}`;
+
+      if (mode === 'page') {
+        // 網頁通知
+        ensureNotificationPermission();
+        scheduleWebNotification(`⏰ 該出發囉！現在 ${depH}:${depM}`, dep.getTime());
+        const div = document.createElement('div');
+        div.textContent = `已設定網頁提醒：${depH}:${depM}`;
+        document.getElementById('reminders').appendChild(div);
+      } else if (mode === 'event') {
+        // 產生 ICS 檔（建議默認行事曆：出發提醒）
+        function toICSDate(d) {
+          return d.getFullYear().toString() +
+                 (d.getMonth() + 1).toString().padStart(2, '0') +
+                 d.getDate().toString().padStart(2, '0') + 'T' +
+                 d.getHours().toString().padStart(2, '0') +
+                 d.getMinutes().toString().padStart(2, '0') + '00';
+        }
+        const dtstamp = toICSDate(new Date());
+        const dtstart = toICSDate(dep);
+        const dtend = toICSDate(new Date(dep.getTime() + 5 * 60000));
+        const uid = Date.now() + '@smartdep';
+        const lines = [
+          'BEGIN:VCALENDAR',
+          'VERSION:2.0',
+          'PRODID:-//SmartDep//EN',
+          'X-WR-CALNAME:出發提醒',
+          'BEGIN:VEVENT',
+          `UID:${uid}`,
+          `DTSTAMP:${dtstamp}`,
+          `DTSTART:${dtstart}`,
+          `DTEND:${dtend}`,
+          'SUMMARY:⏰ 該出發囉！',
+          'BEGIN:VALARM',
+          'TRIGGER:-PT0M',
+          'ACTION:DISPLAY',
+          'DESCRIPTION:⏰ 該出發囉！',
+          'END:VALARM',
+          'END:VEVENT',
+          'END:VCALENDAR'
+        ];
+        const blob = new Blob([lines.join('\r\n')], { type: 'text/calendar' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = 'departure_event.ics';
+        link.textContent = '下載並匯入行事曆事件';
+        document.getElementById('reminders').appendChild(link);
+      }
+    };
+  </script>
+</body>
+</html>
