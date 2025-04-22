@@ -94,14 +94,20 @@
       const travel = parseInt(document.getElementById('travelTime').value, 10);
       const startBuffer = 5;
       const parkBuffer = 15;
+      const totalAdvance = travel + startBuffer + parkBuffer;
 
-      const dep = new Date();
-      dep.setHours(th);
-      dep.setMinutes(tm - (travel + startBuffer + parkBuffer));
-      dep.setSeconds(0);
-      const now = new Date(); if (dep < now) dep.setDate(dep.getDate() + 1);
+      const target = new Date();
+      target.setHours(th);
+      target.setMinutes(tm);
+      target.setSeconds(0);
+      target.setMilliseconds(0);
 
-      return dep;
+      target.setTime(target.getTime() - totalAdvance * 60 * 1000);
+
+      const now = new Date();
+      if (target < now) target.setDate(target.getDate() + 1);
+
+      return target;
     }
 
     function calculateDepTime() {
@@ -138,7 +144,7 @@
       const hour = dep.getHours().toString().padStart(2, '0');
       const minute = dep.getMinutes().toString().padStart(2, '0');
 
-      const dateStr = `${year}${month}${day}T${hour}${minute}`;
+      const dateStr = `${year}${month}${day}T${hour}${minute}00`;
       const url = `https://calendar.google.com/calendar/r/eventedit?text=⏰ 出發提醒&dates=${dateStr}/${dateStr}&ctz=Asia%2FTaipei`;
 
       document.getElementById('result').innerHTML = `<a href="${url}" target="_blank">👉 點我新增 Google 行事曆提醒</a>`;
