@@ -139,7 +139,7 @@
       const minute = dep.getMinutes().toString().padStart(2, '0');
 
       const dateStr = `${year}${month}${day}T${hour}${minute}`;
-      const url = `https://calendar.google.com/calendar/r/eventedit?text=⏰ 出發提醒&dates=${dateStr}/${dateStr}`;
+      const url = `https://calendar.google.com/calendar/r/eventedit?text=⏰ 出發提醒&dates=${dateStr}/${dateStr}&ctz=Asia%2FTaipei`;
 
       document.getElementById('result').innerHTML = `<a href="${url}" target="_blank">👉 點我新增 Google 行事曆提醒</a>`;
     }
