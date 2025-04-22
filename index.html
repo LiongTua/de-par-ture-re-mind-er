@@ -93,10 +93,9 @@
       if (!('Notification' in window)) return;
       if (Notification.permission === 'default') Notification.requestPermission();
     }
-    function scheduleWebNotification(msg, time) {
-      const delay = time - Date.now();
-      if (delay > 0) setTimeout(() => new Notification(msg), delay);
-    }
+ function scheduleWebNotification(msg, time) {
+  setTimeout(() => new Notification('🔔 測試通知：5秒後跳出'), 5000);
+}
 
     document.addEventListener('DOMContentLoaded', () => {
       const now = new Date();
